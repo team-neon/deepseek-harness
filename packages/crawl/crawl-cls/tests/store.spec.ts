@@ -158,6 +158,22 @@ describe('openStore', () => {
     })
   })
 
+  it('reads a committed cursor and returns undefined when the file is missing', () => {
+    const root = tempRoot()
+    const store = openStore(root)
+    expect(store.readCursor()).toBeUndefined()
+    expect(existsSync(join(root, 'crawl', 'cls', 'telegraph', 'cursor.json'))).toBe(false)
+    store.commitCursor({
+      lastSourceItemId: '123456',
+      lastPublishedAt: '2025-10-13T13:59:12.000Z',
+      updatedAt: FETCHED_AT,
+    })
+    expect(store.readCursor()).toEqual({
+      lastSourceItemId: '123456',
+      lastPublishedAt: '2025-10-13T13:59:12.000Z',
+    })
+  })
+
   it('replaces an item whose canonical JSON cannot be hashed', () => {
     const root = tempRoot()
     const store = openStore(root)

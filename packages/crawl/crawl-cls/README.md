@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This optional bundle reserves the Cailian Press telegraph crawl layer. Shipped acp, web, headless, sdk, and sdk-minimal profiles leave it out. A profile that lists the package applies `cordis.patch.yml`. That patch list is empty in this scaffold.
+This optional bundle crawls Cailian Press telegraphs into files. A profile mounts the package, and `NEONQUANT_CRAWL_ROOT` enables the crawl. Shipped acp, web, headless, sdk, and sdk-minimal profiles leave it out.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ This optional bundle reserves the Cailian Press telegraph crawl layer. Shipped a
 <a id="use-this-package"></a>
 ## Use this package
 
-Add the package to a profile bundle list to apply [`cordis.patch.yml`](cordis.patch.yml). Shipped default profiles do not list this package. The patch list in this scaffold is empty.
+Add the package to a profile bundle list to apply [`cordis.patch.yml`](cordis.patch.yml). The patch stays disabled until `NEONQUANT_CRAWL_ROOT` is an absolute data directory. Shipped default profiles do not list this package.
 
 -----
 
@@ -35,7 +35,7 @@ Add the package to a profile bundle list to apply [`cordis.patch.yml`](cordis.pa
 <details>
 <summary>Implementation internals — click to expand</summary>
 
-[`cordis.patch.yml`](cordis.patch.yml) is the bundle patch a profile applies. [`src/index.ts`](src/index.ts) is the package entry the path alias resolves.
+[`cordis.patch.yml`](cordis.patch.yml) mounts the crawl when `NEONQUANT_CRAWL_ROOT` is set. [`src/index.ts`](src/index.ts) registers `cls_telegraph_sync` and runs one round on the configured interval.
 
 </details>
 
@@ -52,17 +52,25 @@ Add the package to a profile bundle list to apply [`cordis.patch.yml`](cordis.pa
 <a id="model-experience"></a>
 ## Model Experience
 
-None, as the bundle adds no model context, tools, or prompts.
+### Telegraph sync tool
+
+#### What the model sees
+
+`cls_telegraph_sync` takes no arguments. Its description is `Sync the latest Cailian Press telegraph items into the configured crawl directory. Returns created, updated, unchanged, and rejected counts for that round.` The result fields are `created`, `updated`, `unchanged`, and `rejected`.
+
+#### Token effect
+
+The tool definition and the returned counts contribute tokens when the tool is available and the model calls it.
 
 #### KV Cache effect
 
-The layer adds no request content, so an existing cache prefix stays reusable.
+Registering the tool changes the tool-list prefix. A call appends ordinary tool-call history and does not replace earlier request tokens.
 
 ## Known Limitations and Deferred Work
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- The bundle patch list is empty, so selecting the package adds no crawl. Shipped default profiles omit it.
+- Shipped default profiles do not mount this package. The crawl writes files under `NEONQUANT_CRAWL_ROOT`, and `cls_telegraph_sync` returns counts only.
 
 -----
 

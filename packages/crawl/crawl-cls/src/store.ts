@@ -19,6 +19,7 @@ export interface CrawlStore {
     lastPublishedAt: string
     updatedAt: string
   }): void
+  readCursor(): { lastSourceItemId: string; lastPublishedAt: string } | undefined
 }
 
 interface PendingIndex {
@@ -137,6 +138,19 @@ export function openStore(root: string): CrawlStore {
         last_published_at: cursor.lastPublishedAt,
         updated_at: cursor.updatedAt,
       }))
+    },
+    readCursor() {
+      // 读取财联社电报水位。cursor.json 不存在时返回 undefined，存在时读出 last_source_item_id 与 last_published_at。
+      const file = join(telegraph, 'cursor.json')
+      if (!existsSync(file)) return undefined
+      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      if (!isRecord(parsed) || typeof parsed.last_source_item_id !== 'string' || typeof parsed.last_published_at !== 'string') {
+        return undefined
+      }
+      return {
+        lastSourceItemId: parsed.last_source_item_id,
+        lastPublishedAt: parsed.last_published_at,
+      }
     },
   }
 }

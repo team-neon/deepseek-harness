@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This group holds the optional Cailian Press telegraph crawl package. A profile can add the bundle. Shipped default profiles leave the package unmounted. The package README owns the layer contract.
+This group holds the optional Cailian Press telegraph crawl package. A profile mounts this package, and `NEONQUANT_CRAWL_ROOT` enables the crawl. Shipped default profiles leave the package unmounted.
 
 ## Table of Contents
 
@@ -22,7 +22,7 @@ This group holds the optional Cailian Press telegraph crawl package. A profile c
 <a id="packages"></a>
 ## Packages
 
-One optional bundle. A profile selects it; default profiles do not.
+One optional bundle. The crawl runs when a profile mounts this package and `NEONQUANT_CRAWL_ROOT` is set.
 
 | Package | Role |
 |---|---|

@@ -9,29 +9,38 @@
   en: e164e90e240c15b2
   zh: 006d920b3b864b64
 /deepseek-ai-dsh-crawl-cls/summary:
-  en: 0b3dd17df2894a71
-  zh: 3e311527d07134de
+  en: f49dec45fb9db267
+  zh: 952b0a9a005b025c
 /deepseek-ai-dsh-crawl-cls/table-of-contents:
   en: d152484eb41ac6b4
   zh: 988e839059414d27
 /deepseek-ai-dsh-crawl-cls/use-this-package:
-  en: 945311c781dd0632
-  zh: 139a6ae0d78c82d3
+  en: f1e885054b727d8b
+  zh: 069ea2571f26066f
 /deepseek-ai-dsh-crawl-cls/understand-the-implementation:
-  en: 55f2d34c5185c4ed
-  zh: e1fb3e11fd39965d
+  en: 47de211f93c14ffc
+  zh: 30bddb4877dc880b
 /deepseek-ai-dsh-crawl-cls/further-exploration:
   en: 53a725240540aefc
   zh: 6403d3be2c354159
 /deepseek-ai-dsh-crawl-cls/model-experience:
-  en: 0cc00121e41cb4ed
-  zh: 17dc54c220f6a9de
-/deepseek-ai-dsh-crawl-cls/model-experience/kv-cache-effect:
-  en: 841d5bb7372f894e
-  zh: 2a87abc1657641d0
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-crawl-cls/model-experience/telegraph-sync-tool:
+  en: 63c83d1e93073b36
+  zh: c38a95b97b2e6b32
+/deepseek-ai-dsh-crawl-cls/model-experience/telegraph-sync-tool/what-the-model-sees:
+  en: cee94efe0d36bb27
+  zh: 28f3cf6fc816bd10
+/deepseek-ai-dsh-crawl-cls/model-experience/telegraph-sync-tool/token-effect:
+  en: 84a8fe87cf171844
+  zh: 260672ac7e41976f
+/deepseek-ai-dsh-crawl-cls/model-experience/telegraph-sync-tool/kv-cache-effect:
+  en: c637823ac0458e78
+  zh: f5bdf6df57833e80
 /deepseek-ai-dsh-crawl-cls/known-limitations-and-deferred-work:
-  en: be63db0feb806cee
-  zh: a9683cad8cc031b8
+  en: 6b99f69664cc578d
+  zh: 47465e6b3ea6253b
 /deepseek-ai-dsh-crawl-cls/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 4c879960b94cc733
