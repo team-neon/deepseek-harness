@@ -9,7 +9,7 @@ kind: "package-group"
 
 ## 概述
 
-本组包含财联社电报抓取。profile 加入该 bundle，NEONQUANT_CRAWL_ROOT 启用它。随附的默认 profile 不挂载这个包。层契约写在包 README 里。
+本组包含可选的财联社电报抓取包。profile 可以加入该 bundle。随附的默认 profile 不挂载这个包。层契约写在包 README 里。
 
 ## 目录
 

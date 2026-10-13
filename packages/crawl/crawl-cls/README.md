@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This optional bundle is the Cailian Press telegraph crawl layer. Shipped acp, web, headless, sdk, and sdk-minimal profiles leave it out. A profile that lists the package applies `cordis.patch.yml`. NEONQUANT_CRAWL_ROOT enables the crawl when that layer is present.
+This optional bundle reserves the Cailian Press telegraph crawl layer. Shipped acp, web, headless, sdk, and sdk-minimal profiles leave it out. A profile that lists the package applies `cordis.patch.yml`. That patch list is empty in this scaffold.
 
 ## Table of Contents
 
@@ -25,7 +25,7 @@ This optional bundle is the Cailian Press telegraph crawl layer. Shipped acp, we
 <a id="use-this-package"></a>
 ## Use this package
 
-Add the package to a profile's bundle list. The reconcile step applies [`cordis.patch.yml`](cordis.patch.yml). Shipped default profiles do not list this package. Set NEONQUANT_CRAWL_ROOT when the profile includes the layer.
+Add the package to a profile bundle list to apply [`cordis.patch.yml`](cordis.patch.yml). Shipped default profiles do not list this package. The patch list in this scaffold is empty.
 
 -----
 
@@ -62,7 +62,7 @@ The layer adds no request content, so an existing cache prefix stays reusable.
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- Shipped default profiles omit this bundle. A profile adds it, and NEONQUANT_CRAWL_ROOT enables the crawl.
+- The bundle patch list is empty, so selecting the package adds no crawl. Shipped default profiles omit it.
 
 -----
 

@@ -9,7 +9,7 @@ English | [中文](README.zh.md)
 
 ## Summary
 
-This group holds the Cailian Press telegraph crawl. A profile adds the bundle, and NEONQUANT_CRAWL_ROOT enables it. Shipped default profiles leave the package unmounted. The package README owns the layer contract.
+This group holds the optional Cailian Press telegraph crawl package. A profile can add the bundle. Shipped default profiles leave the package unmounted. The package README owns the layer contract.
 
 ## Table of Contents
 

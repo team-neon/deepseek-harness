@@ -9,7 +9,7 @@ kind: "package-bundle"
 
 ## 概述
 
-这个可选 bundle 是财联社电报抓取层。随附的 acp、web、headless、sdk 与 sdk-minimal profile 不包含它。把该包列入 profile 后，会应用 `cordis.patch.yml`。层在场时，NEONQUANT_CRAWL_ROOT 启用抓取。
+这个可选 bundle 预留财联社电报抓取层。随附的 acp、web、headless、sdk 与 sdk-minimal profile 不包含它。把该包列入 profile 后，会应用 `cordis.patch.yml`。这份骨架里的补丁列表是空的。
 
 ## 目录
 
@@ -25,7 +25,7 @@ kind: "package-bundle"
 <a id="use-this-package"></a>
 ## 使用此包
 
-把该包加入 profile 的 bundle 列表。reconcile 会应用 [`cordis.patch.yml`](cordis.patch.yml)。随附的默认 profile 不列出这个包。profile 包含该层时设置 NEONQUANT_CRAWL_ROOT。
+把该包加入 profile 的 bundle 列表，以应用 [`cordis.patch.yml`](cordis.patch.yml)。随附的默认 profile 不列出这个包。这份骨架里的补丁列表是空的。
 
 -----
 
@@ -62,7 +62,7 @@ kind: "package-bundle"
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- 随附的默认 profile 不包含这个 bundle。profile 加入它，NEONQUANT_CRAWL_ROOT 启用抓取。
+- bundle 补丁列表是空的，因此选中这个包不会开始抓取。随附的默认 profile 不包含它。
 
 -----
 
