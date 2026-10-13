@@ -47,6 +47,9 @@ kind: "package-reference"
 | `timeoutMs` | `30,000` | 抓取超时——资源兜底，不是面向模型的工具预算 |
 | `maxRedirects` | `5` | 同源重定向最大跳数（`0` 表示不跟随） |
 | `userAgent` | `deepseek-harness/…` | 每次请求发送的 `User-Agent` 标头 |
+| `render` | `false` | 用一次性无头 Chromium 打开已校验的 URL，并返回渲染后的 DOM |
+| `renderReady` | `load` | `render` 为真时等待的浏览器事件：`domcontentloaded`、`load` 或 `networkidle` |
+| `executablePath` | 系统稳定版 Chrome | `render` 为真时使用的 Chromium 可执行文件 |
 
 生成的[配置目录](../../../docs/config-catalog.zh.md#deepseek-aidsh-web-fetch-http)是每个受支持字段及其 JSDoc 的穷尽式真源。
 
@@ -61,7 +64,7 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 
 ### 传输行为
 
-提供方保持请求匿名且有界：只接受不含内嵌凭据且不超过 2,048 个字符的 `http:` 与 `https:` URL。它只解析一次主机名；只要结果中有任何 IPv4 或 IPv6 地址不是公共单播地址，就拒绝整个结果，并把连接固定到已校验的地址集合。IPv6 检查会发现活动 DNS64 前缀，并拒绝指向非公开 IPv4 的转换地址。每次同源重定向都会重复解析与固定；跨源重定向会失败并要求重新调用。提供方还强制执行字节、字符、跳数和时间上限，拒绝不支持的内容类型，并发送显式产品 `User-Agent`。
+提供方保持请求匿名且有界：只接受不含内嵌凭据且不超过 2,048 个字符的 `http:` 与 `https:` URL。它只解析一次主机名；只要结果中有任何 IPv4 或 IPv6 地址不是公共单播地址，就拒绝整个结果，并把连接固定到已校验的地址集合。IPv6 检查会发现活动 DNS64 前缀，并拒绝指向非公开 IPv4 的转换地址。每次同源重定向都会重复解析与固定；跨源重定向会失败并要求重新调用。提供方还强制执行字节、字符、跳数和时间上限，拒绝不支持的内容类型，并发送显式产品 `User-Agent`。当 `render` 为真时，同样的 URL 检查会在浏览器启动前完成。浏览器是一个新的无头 Chromium，不带 Cookie，也不带凭据；它等到 `renderReady`，把渲染后的文档作为 `html` 返回，然后退出。找不到 Chromium 或渲染失败时，调用抛出 `WEB_PROVIDER_ERROR`，不会改用未经渲染的 HTTP 正文。最终 URL 位于其他源时为 `WEB_REDIRECT_BLOCKED`。
 
 ### 失败与恢复
 
@@ -89,7 +92,8 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 | 文件 | 职责 |
 |---|---|
 | [`src/index.ts`](src/index.ts) | 插件入口：配置 schema、上限验证、提供方注册 |
-| [`src/provider.ts`](src/provider.ts) | `HttpFetchProvider`：固定连接、重定向跟随、有界读取、charset 解码 |
+| [`src/provider.ts`](src/provider.ts) | `HttpFetchProvider`：固定连接、重定向跟随、有界读取、charset 解码，以及可选的单次渲染 |
+| [`src/render.ts`](src/render.ts) | 仅在 `render` 为真时使用的一次性无头 Chromium |
 | [`src/network.ts`](src/network.ts) | 公开地址解析、DNS64 发现与连接固定 |
 | [`src/policy.ts`](src/policy.ts) | URL 校验、同源检查、内容类型分类、charset 解析 |
 

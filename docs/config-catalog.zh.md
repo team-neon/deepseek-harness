@@ -4300,10 +4300,10 @@ export interface Config {
 ## `@deepseek-ai/dsh-web-fetch-http`
 
 - `inject`: `web`
-- `source`: [`packages/web/web-fetch-http/src/index.ts:32`](../packages/web/web-fetch-http/src/index.ts)
+- `source`: [`packages/web/web-fetch-http/src/index.ts:33`](../packages/web/web-fetch-http/src/index.ts)
 
 ```ts config-catalog
-/** Plugin config: the provider's transport and size limits plus its `User-Agent` (all defaulted). */
+/** Plugin config: transport limits, the product `User-Agent`, and optional one-shot rendering. */
 export interface Config {
   /** Maximum response body size in bytes. */
   maxResponseBytes?: number
@@ -4315,6 +4315,12 @@ export interface Config {
   maxRedirects?: number
   /** `User-Agent` header sent on every request. */
   userAgent?: string
+  /** Open the URL in a one-shot headless Chromium and return the rendered DOM. Defaults to false. */
+  render?: boolean
+  /** Browser event to wait for when `render` is true. Defaults to `load`. */
+  renderReady?: string
+  /** Chromium executable used when `render` is true. Defaults to stable system Chrome. */
+  executablePath?: string
 }
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-web-fetch-http -->
