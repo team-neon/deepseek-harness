@@ -174,6 +174,15 @@ describe('openStore', () => {
     })
   })
 
+  it('returns undefined when cursor.json is not valid JSON', () => {
+    const root = tempRoot()
+    const store = openStore(root)
+    const telegraph = join(root, 'crawl', 'cls', 'telegraph')
+    mkdirSync(telegraph, { recursive: true })
+    writeFileSync(join(telegraph, 'cursor.json'), '{')
+    expect(store.readCursor()).toBeUndefined()
+  })
+
   it('replaces an item whose canonical JSON cannot be hashed', () => {
     const root = tempRoot()
     const store = openStore(root)

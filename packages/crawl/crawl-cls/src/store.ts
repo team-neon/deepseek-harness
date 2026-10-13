@@ -14,6 +14,7 @@ export interface CrawlStore {
   put(item: TelegraphItem, fetchedAt: string): 'created' | 'updated' | 'unchanged'
   appendReject(reject: MapReject, fetchedAt: string): void
   commitIndex(): void
+  discardIndex(): void
   commitCursor(cursor: {
     lastSourceItemId: string
     lastPublishedAt: string
@@ -131,6 +132,10 @@ export function openStore(root: string): CrawlStore {
       appendFileSync(join(telegraph, 'index.jsonl'), lines)
       pending.length = 0
     },
+    discardIndex() {
+      // 传输失败时丢掉本轮还没提交的索引行。清空 pending，下一轮 commitIndex 只追加自己的行。
+      pending.length = 0
+    },
     commitCursor(cursor) {
       writeAtomic(join(telegraph, 'cursor.json'), JSON.stringify({
         v: 1,
@@ -140,10 +145,15 @@ export function openStore(root: string): CrawlStore {
       }))
     },
     readCursor() {
-      // 读取财联社电报水位。cursor.json 不存在时返回 undefined，存在时读出 last_source_item_id 与 last_published_at。
+      // 读取财联社电报水位。cursor.json 缺失或不是合法 JSON 时返回 undefined，否则读出 last_source_item_id 与 last_published_at。
       const file = join(telegraph, 'cursor.json')
       if (!existsSync(file)) return undefined
-      const parsed: unknown = JSON.parse(readFileSync(file, 'utf8'))
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(readFileSync(file, 'utf8'))
+      } catch {
+        return undefined
+      }
       if (!isRecord(parsed) || typeof parsed.last_source_item_id !== 'string' || typeof parsed.last_published_at !== 'string') {
         return undefined
       }

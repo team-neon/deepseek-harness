@@ -243,4 +243,97 @@ describe('runOnce', () => {
     expect(ops.filter(row => row.source_item_id === '3').map(row => row.op)).toEqual(['created', 'updated'])
     expect(ops.some(row => row.source_item_id === '2' && row.op === 'updated')).toBe(false)
   })
+
+  it('does not commit the cursor when a later page is not a list', async () => {
+    const root = tempRoot()
+    const store = openStore(root)
+    const cursorBytes = '{"v":1,"last_source_item_id":"old","last_published_at":"1970-01-01T00:00:10.000Z","updated_at":"1970-01-01T00:00:00.000Z"}'
+    seed(root, { 'cursor.json': cursorBytes })
+
+    const counts = await runOnce({
+      store,
+      cursor: { lastSourceItemId: 'old', lastPublishedAt: publishedAt(10) },
+      maxPages: 3,
+      now: NOW,
+      async fetchPage(input) {
+        if (input.lastTime === undefined) return { page: page([entry(100, 100)]), oldestCtime: 100 }
+        return { page: { data: { roll_data: null } } }
+      },
+    })
+
+    expect(counts).toEqual({ created: 1, updated: 0, unchanged: 0, rejected: 1 })
+    expect(readFileSync(join(telegraph(root), 'cursor.json'), 'utf8')).toBe(cursorBytes)
+    expect(readFileSync(join(telegraph(root), 'index.jsonl'), 'utf8')).toContain('"source_item_id":"100"')
+    expect(existsSync(join(telegraph(root), 'items', '100.json'))).toBe(true)
+
+    const later = await runOnce({
+      store,
+      cursor: store.readCursor(),
+      maxPages: 1,
+      now: NOW,
+      async fetchPage() {
+        return { page: page([entry(50, 50)]), oldestCtime: 50 }
+      },
+    })
+
+    expect(later.created).toBe(1)
+    expect(existsSync(join(telegraph(root), 'items', '50.json'))).toBe(true)
+  })
+
+  it('does not commit the cursor when a later page rejects every row', async () => {
+    const root = tempRoot()
+    const store = openStore(root)
+    const cursorBytes = '{"v":1,"last_source_item_id":"old","last_published_at":"1970-01-01T00:00:10.000Z","updated_at":"1970-01-01T00:00:00.000Z"}'
+    seed(root, { 'cursor.json': cursorBytes })
+
+    const counts = await runOnce({
+      store,
+      cursor: { lastSourceItemId: 'old', lastPublishedAt: publishedAt(10) },
+      maxPages: 3,
+      now: NOW,
+      async fetchPage(input) {
+        if (input.lastTime === undefined) return { page: page([entry(100, 100)]), oldestCtime: 100 }
+        return { page: page([entry('../x', 80)]), oldestCtime: 80 }
+      },
+    })
+
+    expect(counts).toEqual({ created: 1, updated: 0, unchanged: 0, rejected: 1 })
+    expect(readFileSync(join(telegraph(root), 'cursor.json'), 'utf8')).toBe(cursorBytes)
+    expect(readFileSync(join(telegraph(root), 'index.jsonl'), 'utf8')).toContain('"source_item_id":"100"')
+    expect(existsSync(join(telegraph(root), 'items', '100.json'))).toBe(true)
+    expect(existsSync(join(telegraph(root), 'x.json'))).toBe(false)
+    expect(readFileSync(join(telegraph(root), 'rejects.jsonl'), 'utf8')).toContain('"reason":"invalid_id"')
+  })
+
+  it('appends only the next round index lines after a transport failure on the same store', async () => {
+    const root = tempRoot()
+    const store = openStore(root)
+
+    const failed = await runOnce({
+      store,
+      maxPages: 3,
+      now: NOW,
+      async fetchPage(input) {
+        if (input.lastTime === undefined) return { page: page([entry(1, 100)]), oldestCtime: 100 }
+        throw new Error('transport failed')
+      },
+    })
+
+    expect(failed.created).toBe(1)
+    expect(existsSync(join(telegraph(root), 'index.jsonl'))).toBe(false)
+    expect(existsSync(join(telegraph(root), 'items', '1.json'))).toBe(true)
+
+    await runOnce({
+      store,
+      maxPages: 1,
+      now: NOW,
+      async fetchPage() {
+        return { page: page([entry(2, 200)]), oldestCtime: 200 }
+      },
+    })
+
+    const index = readFileSync(join(telegraph(root), 'index.jsonl'), 'utf8')
+    expect(index).toContain('"source_item_id":"2"')
+    expect(index).not.toContain('"source_item_id":"1"')
+  })
 })

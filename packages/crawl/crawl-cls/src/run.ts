@@ -44,7 +44,7 @@ export async function runOnce(input: {
   now: string
   signal?: AbortSignal
 }): Promise<RunCounts> {
-  // 抓取一轮财联社电报并按停止原因提交索引或水位。逐页映射后写入条目，传输失败时不调用 commitIndex 和 commitCursor。
+  // 抓取一轮财联社电报，只在空列表或走到水位时提交水位。传输失败时丢掉未提交的索引行，非列表页和整页拒绝只提交已写入条目的索引。
   const counts: RunCounts = { created: 0, updated: 0, unchanged: 0, rejected: 0 }
   const watermark = input.cursor?.lastPublishedAt === undefined ? undefined : instant(input.cursor.lastPublishedAt)
   const signal = input.signal ?? new AbortController().signal
@@ -66,6 +66,7 @@ export async function runOnce(input: {
     try {
       fetched = await input.fetchPage(lastTime === undefined ? { signal } : { lastTime, signal })
     } catch {
+      input.store.discardIndex()
       return counts
     }
     const batch = mapTelegraphPage(fetched.page)
@@ -86,8 +87,13 @@ export async function runOnce(input: {
         newest = { sourceItemId: item.sourceItemId, publishedAt: item.publishedAt, time }
       }
     }
-    if (reachedWatermark || batch.items.length === 0) {
+    const listEnded = batch.items.length === 0 && batch.rejects.length === 0
+    if (reachedWatermark || listEnded) {
       commitRound()
+      return counts
+    }
+    if (batch.items.length === 0) {
+      input.store.commitIndex()
       return counts
     }
     if (pages + 1 >= input.maxPages) {
