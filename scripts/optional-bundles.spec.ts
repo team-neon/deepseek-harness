@@ -99,6 +99,7 @@ describe('optional bundles', () => {
 
   it('resolves Cailian Press telegraph marketplace metadata without selecting it by default', () => {
     const name = '@deepseek-ai/dsh-crawl-cls'
+    expect(OPTIONAL_BUNDLES).toContain(name)
     for (const template of Object.values(PROFILE_TEMPLATES)) expect(template.bundles).not.toContain(name)
     const { dir } = bundle(name)
     const meta = readPluginMeta(name, pathToFileURL(`${dir}/package.json`).href)
