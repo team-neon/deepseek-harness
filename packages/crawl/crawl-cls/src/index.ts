@@ -116,11 +116,12 @@ interface LiveFetchInput {
 }
 
 async function fetchTelegraphPage(input: LiveFetchInput): Promise<{ page: unknown; oldestCtime?: number }> {
-  // 按 HTTPS 拉取一页财联社电报。先对不含 sign 的查询调用 signQuery，再校验请求和重定向主机。
+  // 按 HTTPS 拉取一页财联社电报，翻页带 refresh_type=1，否则接口忽略 last_time。先对不含 sign 的参数调用 signQuery，再校验请求和重定向主机。
   const params: Record<string, string> = {
     app: 'CailianpressWeb',
     os: 'web',
     sv: '8.4.6',
+    refresh_type: '1',
     category: '',
     rn: String(input.pageSize),
   }

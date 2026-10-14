@@ -131,6 +131,7 @@ describe('crawl-cls plugin', () => {
     expect(url.searchParams.get('app')).toBe('CailianpressWeb')
     expect(url.searchParams.get('os')).toBe('web')
     expect(url.searchParams.get('sv')).toBe('8.4.6')
+    expect(url.searchParams.get('refresh_type')).toBe('1')
     expect(url.searchParams.get('category')).toBe('')
     expect(url.searchParams.get('rn')).toBe('20')
     expect(url.searchParams.get('last_time')).toBeNull()
@@ -138,6 +139,7 @@ describe('crawl-cls plugin', () => {
       app: 'CailianpressWeb',
       os: 'web',
       sv: '8.4.6',
+      refresh_type: '1',
       category: '',
       rn: '20',
     }))
@@ -161,13 +163,17 @@ describe('crawl-cls plugin', () => {
     expect(pages).toBe(3)
     expect(calls).toHaveLength(3)
     expect(new URL(calls[0]?.url ?? '').searchParams.get('rn')).toBe('7')
+    expect(new URL(calls[0]?.url ?? '').searchParams.get('refresh_type')).toBe('1')
     expect(new URL(calls[0]?.url ?? '').searchParams.get('last_time')).toBeNull()
+    expect(new URL(calls[1]?.url ?? '').searchParams.get('refresh_type')).toBe('1')
     expect(new URL(calls[1]?.url ?? '').searchParams.get('last_time')).toBe(String(Math.min(499, 99, 399)))
+    expect(new URL(calls[2]?.url ?? '').searchParams.get('refresh_type')).toBe('1')
     expect(new URL(calls[2]?.url ?? '').searchParams.get('last_time')).toBe(String(Math.min(498, 98, 398)))
     const second = {
       app: 'CailianpressWeb',
       os: 'web',
       sv: '8.4.6',
+      refresh_type: '1',
       category: '',
       rn: '7',
       last_time: new URL(calls[1]?.url ?? '').searchParams.get('last_time') ?? '',
