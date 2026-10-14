@@ -2,6 +2,7 @@
   "name": "@deepseek-ai/dsh-crawl-cls",
   "description": "Cailian Press telegraph crawl",
   "version": "0.2.1-alpha.2",
+  "icon": "./icon.svg",
   "publishConfig": {
     "access": "public"
   },
@@ -19,10 +20,13 @@
       "default": "./lib/index.js"
     },
     "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
     "./src/*": "./src/*",
     "./package.json": "./package.json"
   },
   "files": [
+    "icon.svg",
+    "locale/*.json",
     "lib/index.js",
     "cordis.patch.yml",
     "lib/types/**/*.d.ts"
