@@ -65,8 +65,12 @@ describe('runOnce', () => {
       maxPages: 3,
       now: NOW,
       async fetchPage(input) {
-        calls.push({ lastTime: input.lastTime })
-        if (calls.length === 1) return { page: FROZEN_PAGE, oldestCtime: FROZEN_PAGE.data.roll_data[0]?.ctime }
+        const lastTime = input.lastTime
+        calls.push(lastTime === undefined ? {} : { lastTime })
+        const oldestCtime = FROZEN_PAGE.data.roll_data[0]?.ctime
+        if (calls.length === 1) {
+          return oldestCtime === undefined ? { page: FROZEN_PAGE } : { page: FROZEN_PAGE, oldestCtime }
+        }
         expect(readFileSync(join(telegraph(root), 'index.jsonl'), 'utf8')).toBe(indexBytes)
         expect(readFileSync(join(telegraph(root), 'cursor.json'), 'utf8')).toBe(cursorBytes)
         expect(existsSync(join(telegraph(root), 'items', '123456.json'))).toBe(true)
@@ -207,7 +211,8 @@ describe('runOnce', () => {
       maxPages: 3,
       now: NOW,
       async fetchPage(input) {
-        seen.push({ lastTime: input.lastTime, signal: input.signal })
+        const lastTime = input.lastTime
+        seen.push(lastTime === undefined ? { signal: input.signal } : { lastTime, signal: input.signal })
         if (seen.length === 1) {
           return {
             page: page([
@@ -266,9 +271,10 @@ describe('runOnce', () => {
     expect(readFileSync(join(telegraph(root), 'index.jsonl'), 'utf8')).toContain('"source_item_id":"100"')
     expect(existsSync(join(telegraph(root), 'items', '100.json'))).toBe(true)
 
+    const cursor = store.readCursor()
     const later = await runOnce({
       store,
-      cursor: store.readCursor(),
+      ...(cursor === undefined ? {} : { cursor }),
       maxPages: 1,
       now: NOW,
       async fetchPage() {

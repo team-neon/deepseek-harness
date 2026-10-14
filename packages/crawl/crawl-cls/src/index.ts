@@ -148,7 +148,8 @@ async function fetchTelegraphPage(input: LiveFetchInput): Promise<{ page: unknow
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const text = await readLimited(response, input.maxResponseBytes)
       const page: unknown = JSON.parse(text)
-      return { page, oldestCtime: oldestCtime(page) }
+      const oldest = oldestCtime(page)
+      return oldest === undefined ? { page } : { page, oldestCtime: oldest }
     }
     throw new Error('too many redirects')
   } finally {
@@ -182,18 +183,22 @@ export function apply(ctx: Context, config: Config): void {
     if (round !== undefined) return round
     const abort = new AbortController()
     roundAbort = abort
+    const cursor = store.readCursor()
     const pending = runOnce({
-      fetchPage: input => fetchTelegraphPage({
-        endpoint,
-        allowedHosts,
-        pageSize,
-        timeoutMs,
-        maxResponseBytes,
-        lastTime: input.lastTime,
-        signal: input.signal,
-      }),
+      fetchPage: (input) => {
+        const lastTime = input.lastTime
+        return fetchTelegraphPage({
+          endpoint,
+          allowedHosts,
+          pageSize,
+          timeoutMs,
+          maxResponseBytes,
+          signal: input.signal,
+          ...(lastTime === undefined ? {} : { lastTime }),
+        })
+      },
       store,
-      cursor: store.readCursor(),
+      ...(cursor === undefined ? {} : { cursor }),
       maxPages,
       now: new Date().toISOString(),
       signal: abort.signal,

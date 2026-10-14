@@ -38,7 +38,7 @@ function execContext(): ToolRunContext {
     signal: new AbortController().signal,
     deferContext() {},
     concludeTurn() {},
-  } as ToolRunContext
+  } as unknown as ToolRunContext
 }
 
 describe('crawl-cls plugin', () => {
