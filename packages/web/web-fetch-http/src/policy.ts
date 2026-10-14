@@ -116,3 +116,21 @@ export function decoderForCharset(charset: string | undefined): TextDecoder {
     throw new WebError(`unsupported charset "${charset}"`, 'WEB_UNSUPPORTED_CONTENT_TYPE', { cause: error })
   }
 }
+
+/** Ready states a one-shot rendered fetch may wait for. `networkidle` waits until loads settle. */
+export const RENDER_READY_STATES = ['domcontentloaded', 'load', 'networkidle'] as const
+
+/** One configured wait condition for a rendered fetch. */
+export type RenderReadyState = (typeof RENDER_READY_STATES)[number]
+
+/**
+ * Accept a deployment's render-ready name.
+ * Anything else fails plugin construction instead of guessing a wait condition at fetch time.
+ *
+ * @param value - the configured `renderReady` string.
+ * @returns the same string when it is one of {@link RENDER_READY_STATES}.
+ */
+export function parseRenderReady(value: string): RenderReadyState {
+  if ((RENDER_READY_STATES as readonly string[]).includes(value)) return value as RenderReadyState
+  throw new Error(`web-fetch-http: renderReady must be one of ${RENDER_READY_STATES.join(', ')}`)
+}

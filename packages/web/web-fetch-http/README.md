@@ -47,6 +47,9 @@ Load the web service and the provider; configurable limits have safe defaults an
 | `timeoutMs` | `30,000` | Fetch timeout — a resource backstop, not the model-facing tool budget |
 | `maxRedirects` | `5` | Maximum same-origin redirect hops (`0` follows none) |
 | `userAgent` | `deepseek-harness/…` | `User-Agent` header sent on every request |
+| `render` | `false` | Open the validated URL in a one-shot headless Chromium and return the rendered DOM |
+| `renderReady` | `load` | Browser event to wait for when `render` is true: `domcontentloaded`, `load`, or `networkidle` |
+| `executablePath` | stable system Chrome | Chromium executable used when `render` is true |
 
 The generated [configuration catalog](../../../docs/config-catalog.md#deepseek-aidsh-web-fetch-http) is the exhaustive source for every accepted field and its JSDoc.
 
@@ -61,7 +64,7 @@ const page = await ctx.web.fetch({ url: 'https://example.com' })
 
 ### Transport behavior
 
-The provider keeps requests anonymous and bounded: it accepts only `http:` and `https:` URLs without embedded credentials and rejects URLs over 2,048 characters. It resolves each hostname once, rejects the complete result if any IPv4 or IPv6 address is not public unicast, and pins the connection to that validated set. IPv6 checks discover the active DNS64 prefix and reject translations to non-public IPv4. Each same-origin redirect repeats resolution and pinning; cross-origin redirects fail and require a fresh call. The provider also enforces byte, character, hop, and time caps, rejects unsupported content types, and sends an explicit product `User-Agent`.
+The provider keeps requests anonymous and bounded: it accepts only `http:` and `https:` URLs without embedded credentials and rejects URLs over 2,048 characters. It resolves each hostname once, rejects the complete result if any IPv4 or IPv6 address is not public unicast, and pins the connection to that validated set. IPv6 checks discover the active DNS64 prefix and reject translations to non-public IPv4. Each same-origin redirect repeats resolution and pinning; cross-origin redirects fail and require a fresh call. The provider also enforces byte, character, hop, and time caps, rejects unsupported content types, and sends an explicit product `User-Agent`. When `render` is true, that same URL check finishes before a browser starts. The browser is a new headless Chromium with no cookies and no credentials; it waits for `renderReady`, returns the rendered document as `html`, and then exits. A missing Chromium or a failed render throws `WEB_PROVIDER_ERROR` and does not substitute the raw HTTP body. A final URL on another origin is `WEB_REDIRECT_BLOCKED`.
 
 ### Failures and recovery
 
@@ -89,7 +92,8 @@ The package is built on one separation and one layered timeout:
 | File | Role |
 |---|---|
 | [`src/index.ts`](src/index.ts) | Plugin entry: config schema, limit validation, provider registration |
-| [`src/provider.ts`](src/provider.ts) | The `HttpFetchProvider`: pinned transport, redirect following, capped reads, charset decoding |
+| [`src/provider.ts`](src/provider.ts) | The `HttpFetchProvider`: pinned transport, redirect following, capped reads, charset decoding, optional one-shot render |
+| [`src/render.ts`](src/render.ts) | One-shot headless Chromium used only when `render` is true |
 | [`src/network.ts`](src/network.ts) | Public-address resolution, DNS64 discovery, and connection pinning |
 | [`src/policy.ts`](src/policy.ts) | URL validation, same-origin checks, content-type classification, charset parsing |
 

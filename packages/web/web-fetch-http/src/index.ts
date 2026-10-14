@@ -10,6 +10,7 @@ import z from '@deepseek-ai/schemastery'
 import type {} from '@deepseek-ai/dsh-web'
 import { HttpFetchProvider } from './provider.ts'
 import type { HttpFetchLimits } from './provider.ts'
+import { parseRenderReady } from './policy.ts'
 
 const MAX_NODE_TIMER_DELAY_MS = 2_147_483_647
 
@@ -28,7 +29,7 @@ export const name = 'web-fetch-http'
 /** The web seam this provider registers into. */
 export const inject = ['web']
 
-/** Plugin config: the provider's transport and size limits plus its `User-Agent` (all defaulted). */
+/** Plugin config: transport limits, the product `User-Agent`, and optional one-shot rendering. */
 export interface Config {
   /** Maximum response body size in bytes. */
   maxResponseBytes?: number
@@ -40,6 +41,12 @@ export interface Config {
   maxRedirects?: number
   /** `User-Agent` header sent on every request. */
   userAgent?: string
+  /** Open the URL in a one-shot headless Chromium and return the rendered DOM. Defaults to false. */
+  render?: boolean
+  /** Browser event to wait for when `render` is true. Defaults to `load`. */
+  renderReady?: string
+  /** Chromium executable used when `render` is true. Defaults to stable system Chrome. */
+  executablePath?: string
 }
 
 export const Config: z<Config> = z.object({
@@ -48,10 +55,22 @@ export const Config: z<Config> = z.object({
   timeoutMs: z.number().default(30_000),
   maxRedirects: z.number().default(5),
   userAgent: z.string().default(DEFAULT_USER_AGENT),
+  render: z.boolean().default(false),
+  renderReady: z.string().default('load'),
+  executablePath: z.string(),
 })
 
-/** Complete config after schemastery applies every field default. */
-type ResolvedConfig = Required<Config>
+/** Complete config after schemastery applies every defaulted field. `executablePath` stays optional. */
+interface ResolvedConfig {
+  maxResponseBytes: number
+  maxBodyChars: number
+  timeoutMs: number
+  maxRedirects: number
+  userAgent: string
+  render: boolean
+  renderReady: string
+  executablePath?: string
+}
 
 /** A resource limit (byte/char/length/timeout cap) must be a positive finite number. */
 function assertPositiveFinite(name: string, value: number): void {
@@ -83,12 +102,17 @@ export function apply(ctx: Context, config: Config): void {
   assertPositiveFinite('maxBodyChars', resolved.maxBodyChars)
   assertTimeoutMs(resolved.timeoutMs)
   assertNonNegativeInteger('maxRedirects', resolved.maxRedirects)
+  const renderReady = parseRenderReady(resolved.renderReady)
+  const executablePath = resolved.executablePath?.trim()
   const limits: HttpFetchLimits = {
     maxResponseBytes: resolved.maxResponseBytes,
     maxBodyChars: resolved.maxBodyChars,
     timeoutMs: resolved.timeoutMs,
     maxRedirects: resolved.maxRedirects,
     userAgent: resolved.userAgent,
+    render: resolved.render,
+    renderReady,
+    ...executablePath === undefined || executablePath.length === 0 ? {} : { executablePath },
   }
   ctx.web.registerFetchProvider(new HttpFetchProvider(limits))
 }

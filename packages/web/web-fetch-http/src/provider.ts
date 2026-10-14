@@ -14,6 +14,9 @@ import { proxyRouteFor } from '@deepseek-ai/dsh-http-proxy'
 import { isNonPublicIpLiteral, publicHttpNetwork } from './network.ts'
 import type { PublicAddress } from './network.ts'
 import { classifyContentType, decoderForCharset, isSameOrigin, parseCharset, validateFetchUrl } from './policy.ts'
+import type { RenderReadyState } from './policy.ts'
+import { renderPublicPage } from './render.ts'
+import type { PageRenderer, RenderedPage } from './render.ts'
 
 /** Resolved provider limits (the plugin's schemastery Config supplies defaults). */
 export interface HttpFetchLimits {
@@ -27,6 +30,15 @@ export interface HttpFetchLimits {
   maxRedirects: number
   /** `User-Agent` header sent on every request. */
   userAgent: string
+  /**
+   * When true, open the validated URL in a one-shot headless Chromium and
+   * return the rendered DOM. Default false keeps the pinned HTTP read.
+   */
+  render?: boolean
+  /** Browser event to wait for when `render` is true. */
+  renderReady?: RenderReadyState
+  /** Chromium executable used when `render` is true. */
+  executablePath?: string
 }
 
 /** Resolve one hostname to an already policy-validated address set. */
@@ -42,10 +54,12 @@ export class HttpFetchProvider implements WebFetchProvider {
   /**
    * @param limits - resolved transport and response limits.
    * @param resolveAddresses - resolver that rejects non-public destinations before returning.
+   * @param renderPage - one-shot renderer. Tests inject this; production uses the headless Chromium renderer.
    */
   constructor(
     private readonly limits: HttpFetchLimits,
     private readonly resolveAddresses: HttpFetchResolver = publicHttpNetwork.resolve,
+    private readonly renderPage: PageRenderer = renderPublicPage,
   ) {}
 
   /** No credentials to check — an anonymous public fetcher is always usable. */
@@ -59,7 +73,52 @@ export class HttpFetchProvider implements WebFetchProvider {
     // One signal stops both the request and body read. The deadline's TimeoutReason later
     // distinguishes this provider's timeout from caller or outer-deadline cancellation.
     using d = deadline(signal, this.limits.timeoutMs, 'WEB_FETCH_TIMEOUT')
+    // 单次渲染仍走同一个 web_fetch。先校验公网 URL，再打开一次性浏览器取 DOM，失败不退回原始 HTTP。
+    if (this.limits.render === true) return await this.renderDocument(request.url, d.signal)
     return await this.followAndRead(request.url, d.signal)
+  }
+
+  /**
+   * Render one validated public URL. A missing browser or a failed navigation
+   * is `WEB_PROVIDER_ERROR`; cancellation stays `WEB_ABORTED` or `WEB_FETCH_TIMEOUT`.
+   */
+  private async renderDocument(initialUrl: string, signal: AbortSignal): Promise<WebFetchResult> {
+    const url = validateFetchUrl(initialUrl)
+    try {
+      await this.resolveAddresses(url.hostname, signal)
+      const page = await this.renderPage({
+        url: url.toString(),
+        signal,
+        ready: this.limits.renderReady ?? 'load',
+        timeoutMs: this.limits.timeoutMs,
+        userAgent: this.limits.userAgent,
+        ...this.limits.executablePath === undefined ? {} : { executablePath: this.limits.executablePath },
+      })
+      return this.renderedResult(url, page)
+    } catch (error: unknown) {
+      if (error instanceof WebError) throw error
+      const timeout = timeoutOf(signal, 'WEB_FETCH_TIMEOUT')
+      if (timeout !== undefined || signal.aborted) throw translateAbortOrNetwork(error, signal)
+      throw new WebError(`web fetch render failed: ${String(error)}`, 'WEB_PROVIDER_ERROR', { cause: error })
+    }
+  }
+
+  /** Accept a rendered document only when its final URL still passes fetch policy, then cap it. */
+  private renderedResult(start: URL, page: RenderedPage): WebFetchResult {
+    const finalUrl = validateFetchUrl(page.url)
+    if (!isSameOrigin(finalUrl, start)) {
+      throw new WebError(
+        `cross-origin redirect to ${finalUrl.origin} is not followed automatically; retry against that URL directly`,
+        'WEB_REDIRECT_BLOCKED',
+      )
+    }
+    const content = capRenderedText(page.html, this.limits.maxResponseBytes, this.limits.maxBodyChars)
+    return {
+      url: finalUrl.toString(),
+      statusCode: page.statusCode,
+      body: { kind: 'html', content: content.text },
+      truncated: content.truncated,
+    }
   }
 
   /** Follow same-origin redirects up to the hop cap, then read the final response. */
@@ -236,6 +295,42 @@ export class HttpFetchProvider implements WebFetchProvider {
     }
     return { bytes, truncatedByBytes }
   }
+}
+
+/** Cut rendered HTML to the byte cap without splitting a UTF-8 sequence, then to the character cap. */
+function capRenderedText(
+  html: string,
+  maxResponseBytes: number,
+  maxBodyChars: number,
+): { text: string; truncated: boolean } {
+  const encoded = Buffer.from(html, 'utf8')
+  let truncated = encoded.byteLength > maxResponseBytes
+  let text = truncated ? encoded.subarray(0, utf8Boundary(encoded, maxResponseBytes)).toString('utf8') : html
+  if (text.length > maxBodyChars) {
+    text = text.slice(0, maxBodyChars)
+    truncated = true
+  }
+  return { text, truncated }
+}
+
+/** Largest index at or below `maxBytes` that is not the middle of a UTF-8 character. */
+function utf8Boundary(encoded: Buffer, maxBytes: number): number {
+  let end = Math.min(maxBytes, encoded.byteLength)
+  while (end > 0 && isUtf8Continuation(byteAt(encoded, end))) end -= 1
+  return end
+}
+
+/** Read one encoded byte. The caller keeps `index` inside the buffer. */
+function byteAt(encoded: Buffer, index: number): number {
+  const byte = encoded[index]
+  /* v8 ignore next -- the cut index stays inside the buffer; this guards the indexed read. */
+  if (byte === undefined) throw new Error('utf-8 boundary walked past the buffer')
+  return byte
+}
+
+/** A UTF-8 continuation byte is `10xxxxxx` and must not become the cut point. */
+function isUtf8Continuation(byte: number): boolean {
+  return (byte & 0b1100_0000) === 0b1000_0000
 }
 
 /** HTTP redirect status codes that carry a `Location`. */

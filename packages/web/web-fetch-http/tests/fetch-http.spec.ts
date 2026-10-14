@@ -3,6 +3,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { AddressInfo } from 'node:net'
 import { Context } from '@deepseek-ai/cordis'
 import WebRuntime from '@deepseek-ai/dsh-web'
+import { WebError } from '@deepseek-ai/dsh-web'
 import { HttpFetchProvider, LOCAL_FETCH_PROVIDER_ID } from '@deepseek-ai/dsh-web-fetch-http'
 import type { HttpFetchLimits, HttpFetchResolver } from '@deepseek-ai/dsh-web-fetch-http'
 import * as fetchPlugin from '@deepseek-ai/dsh-web-fetch-http'
@@ -14,6 +15,7 @@ import {
   parseCharset,
   parseFetchUrl,
   validateFetchUrl,
+  parseRenderReady,
   WEB_FETCH_MAX_URL_LENGTH,
 } from '../src/policy.ts'
 
@@ -63,6 +65,12 @@ describe('policy helpers', () => {
     const exact = `${prefix}${'a'.repeat(WEB_FETCH_MAX_URL_LENGTH - prefix.length)}`
     expect(validateFetchUrl(exact).href).toBe(exact)
     expect(() => validateFetchUrl(`${exact}a`)).toThrow(expect.objectContaining({ code: 'WEB_INVALID_URL' }))
+  })
+
+  it('accepts only the configured render-ready names', () => {
+    expect(() => parseRenderReady('load')).not.toThrow()
+    expect(parseRenderReady('networkidle')).toBe('networkidle')
+    expect(() => parseRenderReady('soon')).toThrow(/renderReady must be one of/)
   })
 
   it('classifies content types', () => {
@@ -624,5 +632,217 @@ describe('web-fetch-http plugin registration', () => {
     await expect(ctx.web.fetch({ url: `${base}/` }))
       .resolves.toMatchObject({ statusCode: 200 })
     await fiber.dispose()
+  })
+
+  it('rejects an unknown renderReady at construction', async () => {
+    const ctx = new Context()
+    await ctx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
+    await expect(ctx.plugin(fetchPlugin, { renderReady: 'soon' }))
+      .rejects.toThrow(/renderReady must be one of/)
+  })
+
+  it('accepts a blank or explicit Chromium path without rendering', async () => {
+    const blankCtx = new Context()
+    await blankCtx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
+    const blank = await blankCtx.plugin(fetchPlugin, { executablePath: '   ' })
+    await expect(blankCtx.web.fetch({ url: `${base}/` })).resolves.toMatchObject({ statusCode: 200 })
+    await blank.dispose()
+
+    const chosenCtx = new Context()
+    await chosenCtx.plugin(WebRuntime, { fetchProvider: LOCAL_FETCH_PROVIDER_ID })
+    const chosen = await chosenCtx.plugin(fetchPlugin, { executablePath: '/tmp/chrome' })
+    await expect(chosenCtx.web.fetch({ url: `${base}/` })).resolves.toMatchObject({ statusCode: 200 })
+    await chosen.dispose()
+  })
+})
+
+describe('rendered fetch', () => {
+  const publicResolver: HttpFetchResolver = async () => [{ address: '1.1.1.1', family: 4 }]
+
+  it('does not launch a renderer until render is enabled', async () => {
+    const renderPage = vi.fn()
+    const quiet = new HttpFetchProvider(
+      { ...limits, render: false },
+      (hostname, ready) => publicHttpNetwork.resolve(hostname, ready),
+      renderPage,
+    )
+    handler = (_req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }); res.end('plain') }
+    await expect(quiet.fetch({ url: base })).resolves.toMatchObject({ body: { kind: 'text', content: 'plain' } })
+    expect(renderPage).not.toHaveBeenCalled()
+  })
+
+  it('rejects an invalid URL before rendering', async () => {
+    const renderPage = vi.fn()
+    const rendered = new HttpFetchProvider({ ...limits, render: true }, publicResolver, renderPage)
+    await expect(rendered.fetch({ url: 'ftp://example.com' }))
+      .rejects.toThrow(expect.objectContaining({ code: 'WEB_INVALID_URL' }))
+    expect(renderPage).not.toHaveBeenCalled()
+  })
+
+  it('rejects a non-public host before rendering', async () => {
+    const renderPage = vi.fn()
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true },
+      async () => { throw new WebError('private', 'WEB_BLOCKED_URL') },
+      renderPage,
+    )
+    await expect(rendered.fetch({ url: 'https://intranet.example/' }))
+      .rejects.toThrow(expect.objectContaining({ code: 'WEB_BLOCKED_URL' }))
+    expect(renderPage).not.toHaveBeenCalled()
+  })
+
+  it('returns capped rendered HTML and does not fall back when rendering fails', async () => {
+    const request = vi.spyOn(publicHttpNetwork, 'request')
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true, maxBodyChars: 4 },
+      publicResolver,
+      async () => ({ url: 'https://example.com/ready', statusCode: 200, html: 'abcdef' }),
+    )
+    await expect(rendered.fetch({ url: 'https://example.com/' })).resolves.toEqual({
+      url: 'https://example.com/ready',
+      statusCode: 200,
+      body: { kind: 'html', content: 'abcd' },
+      truncated: true,
+    })
+
+    const failing = new HttpFetchProvider(
+      { ...limits, render: true },
+      publicResolver,
+      async () => { throw new Error('chromium missing') },
+    )
+    await expect(failing.fetch({ url: 'https://example.com/' }))
+      .rejects.toThrow(expect.objectContaining({ code: 'WEB_PROVIDER_ERROR' }))
+    expect(request).not.toHaveBeenCalled()
+  })
+
+  it('reports a cross-origin rendered navigation as a blocked redirect', async () => {
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true },
+      publicResolver,
+      async () => ({ url: 'https://elsewhere.test/', statusCode: 200, html: '<p>other</p>' }),
+    )
+    await expect(rendered.fetch({ url: 'https://example.com/' }))
+      .rejects.toThrow(expect.objectContaining({ code: 'WEB_REDIRECT_BLOCKED' }))
+  })
+
+  it('keeps a non-2xx rendered document as a result', async () => {
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true },
+      publicResolver,
+      async () => ({ url: 'https://example.com/missing', statusCode: 404, html: '<p>missing</p>' }),
+    )
+    await expect(rendered.fetch({ url: 'https://example.com/missing' })).resolves.toMatchObject({
+      statusCode: 404,
+      body: { kind: 'html', content: '<p>missing</p>' },
+      truncated: false,
+    })
+  })
+
+  it('cuts rendered HTML on UTF-8 boundaries and then on the character cap', async () => {
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true, maxResponseBytes: 3, maxBodyChars: 10 },
+      publicResolver,
+      async () => ({ url: 'https://example.com/', statusCode: 200, html: 'éé' }),
+    )
+    await expect(rendered.fetch({ url: 'https://example.com/' })).resolves.toMatchObject({
+      body: { kind: 'html', content: 'é' },
+      truncated: true,
+    })
+
+    const both = new HttpFetchProvider(
+      { ...limits, render: true, maxResponseBytes: 4, maxBodyChars: 1 },
+      publicResolver,
+      async () => ({ url: 'https://example.com/', statusCode: 200, html: 'ééx' }),
+    )
+    await expect(both.fetch({ url: 'https://example.com/' })).resolves.toMatchObject({
+      body: { content: 'é' },
+      truncated: true,
+    })
+
+    const empty = new HttpFetchProvider(
+      { ...limits, render: true, maxResponseBytes: 1, maxBodyChars: 10 },
+      publicResolver,
+      async () => ({ url: 'https://example.com/', statusCode: 200, html: 'é' }),
+    )
+    await expect(empty.fetch({ url: 'https://example.com/' })).resolves.toMatchObject({
+      body: { content: '' },
+      truncated: true,
+    })
+  })
+
+  it('passes the Chromium path and ready state only when configured', async () => {
+    let seenReady = ''
+    let seenPath: string | undefined
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true, renderReady: 'domcontentloaded', executablePath: '/tmp/chrome' },
+      publicResolver,
+      async (request) => {
+        seenReady = request.ready
+        seenPath = request.executablePath
+        return { url: 'https://example.com/', statusCode: 200, html: '<p>ok</p>' }
+      },
+    )
+    await expect(rendered.fetch({ url: 'https://example.com/' })).resolves.toMatchObject({
+      body: { content: '<p>ok</p>' },
+    })
+    expect(seenReady).toBe('domcontentloaded')
+    expect(seenPath).toBe('/tmp/chrome')
+
+    const defaults = new HttpFetchProvider(
+      { ...limits, render: true },
+      publicResolver,
+      async (request) => {
+        seenReady = request.ready
+        seenPath = request.executablePath
+        return { url: 'https://example.com/', statusCode: 200, html: '<p>ok</p>' }
+      },
+    )
+    await defaults.fetch({ url: 'https://example.com/' })
+    expect(seenReady).toBe('load')
+    expect(seenPath).toBeUndefined()
+  })
+
+  it('rejects a rendered URL that fails fetch policy', async () => {
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true },
+      publicResolver,
+      async () => ({ url: 'ftp://example.com/', statusCode: 200, html: '<p>x</p>' }),
+    )
+    await expect(rendered.fetch({ url: 'https://example.com/' }))
+      .rejects.toThrow(expect.objectContaining({ code: 'WEB_INVALID_URL' }))
+  })
+
+  it('classifies an aborted render as WEB_ABORTED', async () => {
+    const controller = new AbortController()
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true },
+      publicResolver,
+      async ({ signal }): Promise<never> => {
+        return await new Promise<never>((_resolve, reject) => {
+          const fail = () => { reject(new Error('aborted')) }
+          if (signal.aborted) fail()
+          else signal.addEventListener('abort', fail, { once: true })
+        })
+      },
+    )
+    const pending = rendered.fetch({ url: 'https://example.com/' }, controller.signal)
+    controller.abort()
+    await expect(pending).rejects.toThrow(expect.objectContaining({ code: 'WEB_ABORTED' }))
+  })
+
+  it('classifies a render that exceeds timeoutMs as WEB_FETCH_TIMEOUT', async () => {
+    const rendered = new HttpFetchProvider(
+      { ...limits, render: true, timeoutMs: 40 },
+      publicResolver,
+      async ({ signal }): Promise<never> => {
+        return await new Promise<never>((_resolve, reject) => {
+          const fail = () => { reject(new Error('aborted')) }
+          if (signal.aborted) fail()
+          else signal.addEventListener('abort', fail, { once: true })
+        })
+      },
+    )
+    await expect(rendered.fetch({ url: 'https://example.com/' }))
+      .rejects.toThrow(expect.objectContaining({ code: 'WEB_FETCH_TIMEOUT' }))
   })
 })

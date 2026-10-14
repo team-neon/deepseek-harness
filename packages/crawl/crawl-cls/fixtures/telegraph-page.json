@@ -1,0 +1,16 @@
+{
+  "data": {
+    "roll_data": [
+      {
+        "id": 123456,
+        "ctime": 1760363952,
+        "title": "",
+        "content": "第一行\n其余",
+        "shareurl": "https://www.cls.cn/detail/123456"
+      },
+      {
+        "id": "../x"
+      }
+    ]
+  }
+}

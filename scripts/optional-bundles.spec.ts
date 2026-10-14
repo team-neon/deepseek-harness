@@ -97,6 +97,21 @@ describe('optional bundles', () => {
     expect(OPTIONAL_BUNDLES.length).toBeGreaterThan(0)
   })
 
+  it('resolves Cailian Press telegraph marketplace metadata without selecting it by default', () => {
+    const name = '@deepseek-ai/dsh-crawl-cls'
+    expect(OPTIONAL_BUNDLES).toContain(name)
+    for (const template of Object.values(PROFILE_TEMPLATES)) expect(template.bundles).not.toContain(name)
+    const { dir } = bundle(name)
+    const meta = readPluginMeta(name, pathToFileURL(`${dir}/package.json`).href)
+    expect(meta?.error).toBeUndefined()
+    expect(meta?.title).toEqual({ en: 'Cailian Press telegraph', zh: '财联社电报' })
+    expect(meta?.description).toEqual({
+      en: 'Crawl Cailian Press telegraph items into NEONQUANT_CRAWL_ROOT.',
+      zh: '把财联社电报抓到 NEONQUANT_CRAWL_ROOT。',
+    })
+    expect(meta?.icon).toMatch(/^data:image\/svg\+xml;base64,/)
+  })
+
   it('keeps the Inspector out of the default plugin list', () => {
     expect(OPTIONAL_BUNDLES).not.toContain('@deepseek-ai/dsh-experimental-inspector')
   })

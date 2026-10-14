@@ -1,0 +1,6 @@
+- insert:
+    - id: crawl-cls
+      name: '@deepseek-ai/dsh-crawl-cls'
+      disabled: !!js "!process.env.NEONQUANT_CRAWL_ROOT"
+      config:
+        root: !!js "process.env.NEONQUANT_CRAWL_ROOT"

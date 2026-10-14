@@ -1,0 +1,25 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/crawl/README.md
+/:
+  en: 42e8ad00769523ca
+  zh: fb341443b3e8a072
+/crawl-cailian-press-telegraph-crawl:
+  en: 58b81c48f7e6bba2
+  zh: e457ea95056ea621
+/crawl-cailian-press-telegraph-crawl/summary:
+  en: 022016c1c9a0d136
+  zh: db9d2e1ba30093f6
+/crawl-cailian-press-telegraph-crawl/table-of-contents:
+  en: 1eb35b015a6c423f
+  zh: a8a3dceee2c9e943
+/crawl-cailian-press-telegraph-crawl/packages:
+  en: f50e56ef27d5937f
+  zh: 2ec99a3f135a4fff
+/crawl-cailian-press-telegraph-crawl/related-documentation:
+  en: 4ea4c82e7149b622
+  zh: 58ff197a53b8976d
+/crawl-cailian-press-telegraph-crawl/dev-note:
+  en: b75c8458928b72b9
+  zh: 003ba4e17b4b5269
