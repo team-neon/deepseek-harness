@@ -58,6 +58,7 @@ const ROOT_LAUNCHER_POLICIES = new Map<string, LauncherPolicy>([
   ['demo:inspector', { kind: 'dsh-direct' }],
   ['start:web', { kind: 'dsh-direct' }],
   ['dev:web', { kind: 'dsh-wrapper', wrapper: 'scripts/dev-web.ts' }],
+  ['web:up', { kind: 'dsh-wrapper', wrapper: 'scripts/web-up.ts' }],
 ])
 
 const SOURCE_PATTERNS = [
